@@ -28,6 +28,8 @@ type StackdriverHook struct {
 	ignoreFields   map[string]struct{}
 	filters        map[string]func(interface{}) interface{}
 	errorHandlers  []func(entry *logrus.Entry, err error)
+
+	extraFields	logrus.Fields
 }
 
 // New returns initialized logrus hook for Stackdriver.
@@ -48,7 +50,12 @@ func NewWithConfig(projectID string, logName string, conf config.Config) (*Stack
 		levels:         defaultLevels,
 		ignoreFields:   make(map[string]struct{}),
 		filters:        make(map[string]func(interface{}) interface{}),
+		extraFields:	logrus.Fields{},
 	}, nil
+}
+
+func (h *StackdriverHook) AddDefaultField(name string, field interface{}) {
+	h.extraFields[name] = field
 }
 
 // Levels returns logging level to fire this hook.
@@ -125,7 +132,11 @@ func (h *StackdriverHook) fire(entry *logrus.Entry) error {
 }
 
 func (h *StackdriverHook) getData(df *dataField) map[string]interface{} {
-	result := make(map[string]interface{}, df.len())
+	result := make(map[string]interface{}, df.len() + len(h.extraFields))
+	for k, v := range h.extraFields {
+		result[k] = v
+	}
+
 	for k, v := range df.data {
 		if df.isOmit(k) {
 			continue // skip already used special fields
@@ -141,6 +152,7 @@ func (h *StackdriverHook) getData(df *dataField) map[string]interface{} {
 		}
 		result[k] = v
 	}
+
 	return result
 }
 
